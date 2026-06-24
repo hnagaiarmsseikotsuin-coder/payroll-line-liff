@@ -97,7 +97,7 @@
 
         if (!liff.isLoggedIn()) {
           show('LINEログインへ移動します。');
-          liff.login();
+          liff.login({ redirectUri: location.href });
           return;
         }
 
