@@ -19,7 +19,7 @@
     }
     h1 {
       font-size: 26px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
     p {
       font-size: 16px;
@@ -28,27 +28,45 @@
     button {
       width: 100%;
       padding: 16px;
-      font-size: 18px;
+      font-size: 17px;
       border: none;
       border-radius: 10px;
       background: #06c755;
       color: #fff;
       font-weight: bold;
-      margin-top: 16px;
+      margin-top: 12px;
+    }
+    .secondary {
+      background: #444;
     }
     #result {
       margin-top: 18px;
       font-weight: bold;
       white-space: pre-wrap;
+      line-height: 1.6;
+    }
+    .note {
+      font-size: 14px;
+      color: #666;
+      margin-top: 18px;
     }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>給与業務確認</h1>
-    <p>登録テスト画面です。</p>
 
-    <button id="registerBtn">登録する</button>
+    <p>完了した作業を選択してください。</p>
+
+    <button onclick="completeStep('1')">① 労務内容確定</button>
+    <button onclick="completeStep('2')">② 給与確定・明細予約</button>
+    <button onclick="completeStep('3')">③ 振込予約</button>
+
+    <button class="secondary" onclick="getStatus()">進捗確認</button>
+
+    <div class="note">
+      ※給与額や個人情報は、この画面では扱いません。
+    </div>
 
     <div id="result">画面を読み込みました。</div>
   </div>
@@ -59,11 +77,11 @@
 
     const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzq4VaXzxh9vLP0kdL272vMhhGMc5Xkxmx9l0xSPP1TqkGoWT8pU4fkLOaEgFkQCrP8/exec';
 
+    let profile = null;
+
     function show(message) {
       document.getElementById('result').textContent = message;
     }
-
-    document.getElementById('registerBtn').addEventListener('click', registerUser);
 
     function jsonp(url) {
       return new Promise((resolve, reject) => {
@@ -87,39 +105,60 @@
       });
     }
 
-    async function registerUser() {
+    async function initLiff() {
+      if (profile) return profile;
+
+      show('LINE情報を確認しています。');
+
+      await liff.init({ liffId: LIFF_ID });
+
+      if (!liff.isLoggedIn()) {
+        show('LINEログインへ移動します。');
+        liff.login({ redirectUri: location.href });
+        return null;
+      }
+
+      profile = await liff.getProfile();
+      return profile;
+    }
+
+    async function completeStep(step) {
       try {
-        show('LIFFを初期化しています。');
+        const p = await initLiff();
+        if (!p) return;
 
-        await liff.init({ liffId: LIFF_ID });
-
-        show('LIFF初期化完了。');
-
-        if (!liff.isLoggedIn()) {
-          show('LINEログインへ移動します。');
-          liff.login({ redirectUri: location.href });
-          return;
-        }
-
-        show('LINEプロフィールを取得しています。');
-
-        const profile = await liff.getProfile();
-
-        show('プロフィール取得完了。保存しています。');
+        show('登録しています。');
 
         const url =
           GAS_WEB_APP_URL +
-          '?action=saveLineUser' +
-          '&lineUserId=' + encodeURIComponent(profile.userId) +
-          '&displayName=' + encodeURIComponent(profile.displayName);
+          '?action=completeStep' +
+          '&step=' + encodeURIComponent(step) +
+          '&lineUserId=' + encodeURIComponent(p.userId) +
+          '&displayName=' + encodeURIComponent(p.displayName);
 
         const res = await jsonp(url);
 
-        if (res.ok) {
-          show(res.message || '登録しました。');
-        } else {
-          show('エラー：' + (res.message || '登録できませんでした'));
-        }
+        show(res.message || '処理しました。');
+
+      } catch (e) {
+        show('画面エラー：' + e.message);
+      }
+    }
+
+    async function getStatus() {
+      try {
+        const p = await initLiff();
+        if (!p) return;
+
+        show('進捗を確認しています。');
+
+        const url =
+          GAS_WEB_APP_URL +
+          '?action=getStatus';
+
+        const res = await jsonp(url);
+
+        show(res.message || '進捗を取得しました。');
 
       } catch (e) {
         show('画面エラー：' + e.message);
