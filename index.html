@@ -10,6 +10,7 @@
       background: #f7f7f7;
       margin: 0;
       padding: 24px;
+      color: #222;
     }
 
     .card {
@@ -21,12 +22,13 @@
 
     h1 {
       font-size: 26px;
-      margin-bottom: 14px;
+      margin: 0 0 14px;
     }
 
     p {
       font-size: 16px;
       line-height: 1.7;
+      margin: 10px 0;
     }
 
     button {
@@ -41,6 +43,10 @@
       margin-top: 12px;
     }
 
+    button:active {
+      opacity: 0.8;
+    }
+
     .register {
       background: #1f8f4d;
     }
@@ -49,11 +55,12 @@
       background: #444;
     }
 
-    .danger-note {
-      font-size: 14px;
-      color: #666;
-      margin-top: 18px;
-      line-height: 1.6;
+    .cancel {
+      background: #999;
+    }
+
+    .confirm {
+      background: #d9534f;
     }
 
     .section-title {
@@ -64,11 +71,40 @@
       padding-top: 18px;
     }
 
+    .danger-note {
+      font-size: 14px;
+      color: #666;
+      margin-top: 18px;
+      line-height: 1.6;
+    }
+
     #result {
       margin-top: 18px;
       font-weight: bold;
       white-space: pre-wrap;
       line-height: 1.6;
+    }
+
+    #confirmArea {
+      display: none;
+      margin-top: 22px;
+      padding: 18px;
+      background: #fff7f7;
+      border: 1px solid #f0c2c2;
+      border-radius: 12px;
+    }
+
+    #confirmTitle {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 12px;
+      color: #b00020;
+    }
+
+    #confirmMessage {
+      white-space: pre-wrap;
+      line-height: 1.7;
+      font-size: 15px;
     }
   </style>
 </head>
@@ -82,14 +118,23 @@
 
     <div class="section-title">作業完了登録</div>
 
-    <button onclick="completeStep('1')">① 労務内容確定</button>
-    <button onclick="completeStep('2')">② 給与確定・明細予約</button>
-    <button onclick="completeStep('3')">③ 振込予約</button>
+    <button onclick="showConfirm('1')">① 労務内容確定</button>
+    <button onclick="showConfirm('2')">② 給与確定・明細予約</button>
+    <button onclick="showConfirm('3')">③ 振込予約</button>
 
     <button class="secondary" onclick="getStatus()">進捗確認</button>
 
+    <div id="confirmArea">
+      <div id="confirmTitle"></div>
+      <div id="confirmMessage"></div>
+
+      <button class="confirm" onclick="submitConfirmedStep()">完了登録する</button>
+      <button class="cancel" onclick="cancelConfirm()">キャンセル</button>
+    </div>
+
     <div class="danger-note">
       ※初回登録は最初に1回だけ押してください。<br>
+      ※作業完了登録は、確認項目がすべて完了している場合のみ押してください。<br>
       ※給与額や個人情報は、この画面やLINEには送らないでください。
     </div>
 
@@ -103,6 +148,41 @@
     const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzq4VaXzxh9vLP0kdL272vMhhGMc5Xkxmx9l0xSPP1TqkGoWT8pU4fkLOaEgFkQCrP8/exec';
 
     let profile = null;
+    let pendingStep = null;
+
+    const confirmMessages = {
+      '1':
+        '①労務内容確定を完了登録します。\n\n' +
+        '以下の確認は完了していますか？\n\n' +
+        '・勤怠内容の確認\n' +
+        '・有給、欠勤、遅刻、早退の確認\n' +
+        '・手当、控除、変更事項の確認\n' +
+        '・月額変更・社保等級の確認\n' +
+        '・給与計算に進める状態であること\n\n' +
+        '問題なければ「完了登録する」を押してください。',
+
+      '2':
+        '②給与確定・明細予約を完了登録します。\n\n' +
+        '以下の確認は完了していますか？\n\n' +
+        '・給与の確定\n' +
+        '・給与明細の配信予約\n\n' +
+        '問題なければ「完了登録する」を押してください。',
+
+      '3':
+        '③振込予約を完了登録します。\n\n' +
+        '以下の確認は完了していますか？\n\n' +
+        '・振込金額の確認\n' +
+        '・振込先の確認\n' +
+        '・振込予約の完了\n' +
+        '・振込予定日の確認\n\n' +
+        '問題なければ「完了登録する」を押してください。'
+    };
+
+    const stepNames = {
+      '1': '① 労務内容確定',
+      '2': '② 給与確定・明細予約',
+      '3': '③ 振込予約'
+    };
 
     function show(message) {
       document.getElementById('result').textContent = message;
@@ -149,6 +229,8 @@
 
     async function registerCandidate() {
       try {
+        cancelConfirm();
+
         const p = await initLiff();
         if (!p) return;
 
@@ -169,12 +251,50 @@
       }
     }
 
+    function showConfirm(step) {
+      pendingStep = step;
+
+      document.getElementById('confirmTitle').textContent =
+        stepNames[step] + 'の確認';
+
+      document.getElementById('confirmMessage').textContent =
+        confirmMessages[step];
+
+      document.getElementById('confirmArea').style.display = 'block';
+
+      show('確認内容を確認してください。');
+
+      document.getElementById('confirmArea').scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+
+    function cancelConfirm() {
+      pendingStep = null;
+      document.getElementById('confirmArea').style.display = 'none';
+      document.getElementById('confirmTitle').textContent = '';
+      document.getElementById('confirmMessage').textContent = '';
+    }
+
+    async function submitConfirmedStep() {
+      if (!pendingStep) {
+        show('完了登録する工程が選択されていません。');
+        return;
+      }
+
+      const step = pendingStep;
+      cancelConfirm();
+
+      await completeStep(step);
+    }
+
     async function completeStep(step) {
       try {
         const p = await initLiff();
         if (!p) return;
 
-        show('登録しています。');
+        show('完了登録しています。');
 
         const url =
           GAS_WEB_APP_URL +
@@ -194,6 +314,8 @@
 
     async function getStatus() {
       try {
+        cancelConfirm();
+
         const p = await initLiff();
         if (!p) return;
 
