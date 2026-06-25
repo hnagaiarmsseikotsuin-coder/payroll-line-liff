@@ -11,20 +11,24 @@
       margin: 0;
       padding: 24px;
     }
+
     .card {
       background: #fff;
       padding: 24px;
       border-radius: 14px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
+
     h1 {
       font-size: 26px;
       margin-bottom: 14px;
     }
+
     p {
       font-size: 16px;
       line-height: 1.7;
     }
+
     button {
       width: 100%;
       padding: 16px;
@@ -36,19 +40,35 @@
       font-weight: bold;
       margin-top: 12px;
     }
+
+    .register {
+      background: #1f8f4d;
+    }
+
     .secondary {
       background: #444;
     }
+
+    .danger-note {
+      font-size: 14px;
+      color: #666;
+      margin-top: 18px;
+      line-height: 1.6;
+    }
+
+    .section-title {
+      margin-top: 24px;
+      font-weight: bold;
+      color: #333;
+      border-top: 1px solid #ddd;
+      padding-top: 18px;
+    }
+
     #result {
       margin-top: 18px;
       font-weight: bold;
       white-space: pre-wrap;
       line-height: 1.6;
-    }
-    .note {
-      font-size: 14px;
-      color: #666;
-      margin-top: 18px;
     }
   </style>
 </head>
@@ -56,7 +76,11 @@
   <div class="card">
     <h1>給与業務確認</h1>
 
-    <p>完了した作業を選択してください。</p>
+    <p>給与業務の確認・完了登録を行います。</p>
+
+    <button class="register" onclick="registerCandidate()">初回登録</button>
+
+    <div class="section-title">作業完了登録</div>
 
     <button onclick="completeStep('1')">① 労務内容確定</button>
     <button onclick="completeStep('2')">② 給与確定・明細予約</button>
@@ -64,8 +88,9 @@
 
     <button class="secondary" onclick="getStatus()">進捗確認</button>
 
-    <div class="note">
-      ※給与額や個人情報は、この画面では扱いません。
+    <div class="danger-note">
+      ※初回登録は最初に1回だけ押してください。<br>
+      ※給与額や個人情報は、この画面やLINEには送らないでください。
     </div>
 
     <div id="result">画面を読み込みました。</div>
@@ -120,6 +145,28 @@
 
       profile = await liff.getProfile();
       return profile;
+    }
+
+    async function registerCandidate() {
+      try {
+        const p = await initLiff();
+        if (!p) return;
+
+        show('初回登録をしています。');
+
+        const url =
+          GAS_WEB_APP_URL +
+          '?action=registerCandidate' +
+          '&lineUserId=' + encodeURIComponent(p.userId) +
+          '&displayName=' + encodeURIComponent(p.displayName);
+
+        const res = await jsonp(url);
+
+        show(res.message || '初回登録を完了しました。');
+
+      } catch (e) {
+        show('画面エラー：' + e.message);
+      }
     }
 
     async function completeStep(step) {
